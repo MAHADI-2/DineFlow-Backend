@@ -12,7 +12,7 @@ export const updateProfilePicController = async (req, res) => {
 
         const userId = req.headers.user_id;
 
-        const imagePath = `/uploads/${req.file.filename}`;
+        const imagePath = req.file.path;
 
         const result = await updateProfilePic(userId, imagePath);
 

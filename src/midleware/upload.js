@@ -1,19 +1,22 @@
+import "dotenv/config";
 import multer from "multer";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
+import { v2 as cloudinary } from "cloudinary";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
 
-const currentDir = path.dirname(fileURLToPath(import.meta.url));
-const uploadDir = path.resolve(currentDir, "../../uploads");
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
-fs.mkdirSync(uploadDir, { recursive: true });
-
-const storage = multer.diskStorage({
-    destination: uploadDir,
-    filename: (req, file, cb) => {
-        cb(null, Date.now() + "-" + file.originalname);
+const storage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+        folder: "dineflow",
+        allowed_formats: ["jpg", "jpeg", "png", "webp", "gif"]
     }
 });
+
 const upload = multer({
     storage,
     limits: { fileSize: 5 * 1024 * 1024 },

@@ -1,5 +1,4 @@
 import { MenuService,getMenu,UpdateMenu,deleteMenu,addFoodReviewService } from "./MenuService.js";
-import upload from "../midleware/upload.js";
 
 export const MenuController = async (req, res) => {
     try {
@@ -113,7 +112,7 @@ export const uploadMenuImageController = async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ status: "fail", message: "No image file uploaded" });
     }
-    const imagePath = `/uploads/${req.file.filename}`;
+    const imagePath = req.file.path;
     return res.status(200).json({ status: "success", image: imagePath });
   } catch (error) {
     return res.status(500).json({ status: "fail", message: error.message });
