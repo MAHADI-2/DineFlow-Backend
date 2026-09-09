@@ -1,0 +1,175 @@
+import { createOrder } from "../OrderService&controller/orderService.js";
+import { initiatePaymentService, validatePaymentService } from "./paymentService.js";
+import { OrderModel } from "../model/Order.js";
+import config from "../config.js";
+
+const clientUrl = (config.CLIENT_URL || "http://localhost:5173").replace(/\/+$/, "");
+
+
+export const initiatePaymentController = async (req, res) => {
+    try {
+        const userId = req.headers.user_id;
+        if (!userId) {
+            return res.status(400).json({ status: "fail", message: "User ID is missing in headers" });
+        }
+        
+        const { paymentMethod, items, deliveryAddress, totalAmount, promoCode } = req.body;
+        const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+
+        // যদি ক্যাশ অন ডেলিভারি হয়
+        if (paymentMethod === "cod") {
+            const orderResult = await createOrder({
+                items,
+                deliveryAddress,
+                totalAmount,
+                orderId,
+                userId,
+                paymentMethod: "cod",
+                paymentStatus: "unpaid", // ক্যাশ অন ডেলিভারিতে পেমেন্ট পরে হবে
+                status: "confirmed"     // অর্ডার সরাসরি কনফার্ম হয়ে যাবে
+            });
+
+            return res.status(200).json({
+                status: "success",
+                message: "Order placed successfully with Cash on Delivery",
+                orderId
+            });
+        }
+
+        // অন্যথায় এসএসএল কমার্জ (SSLCommerz) পেমেন্ট প্রসেস হবে
+        const orderResult = await createOrder({
+            items,
+            deliveryAddress,
+            totalAmount,
+            orderId,
+            userId,
+            paymentMethod: "sslcommerz",
+            paymentStatus: "pending",
+            promoCode
+        });
+
+        const gatewayUrl = await initiatePaymentService(orderResult.data);
+        return res.status(200).json({
+            status: "success",
+            message: "Redirect to payment gateway",
+            url: gatewayUrl.data,
+            orderId
+        });
+
+    } catch (error) {
+        const clientInputErrors = [
+            "At least one menu item is required",
+            "Invalid menu item id",
+            "One or more menu items are no longer available",
+            "Menu item not found",
+            "Quantity must be a whole number between 1 and 99"
+        ];
+        return res.status(clientInputErrors.includes(error.message) ? 400 : 500).json({
+            status: "fail",
+            message: error.message || "Payment initialization failed"
+        });
+    }
+}
+
+// SSLCommerz payment success hole EI URL e POST request pathay
+// (GET na, POST - form data hisebe val_id, tran_id ashe)
+
+
+
+export const paymentSuccessController = async (req, res) => {
+
+
+try {
+    
+const { orderId } = req.params;
+ const { val_id, tran_id } = req.body;
+ const order = await OrderModel.findOne({ orderId, paymentStatus: "pending" });
+ if (!order || (tran_id && tran_id !== order.orderId)) {
+ return res.redirect(`${clientUrl}/order/fail/${orderId}?payment=failed`);
+ }
+
+const validation = await validatePaymentService(val_id);
+const validatedAmount = Number(validation.amount);
+const isValidPayment =
+ (validation.status === "VALID" || validation.status === "VALIDATED") &&
+ (!validation.tran_id || validation.tran_id === order.orderId) &&
+ Number.isFinite(validatedAmount) &&
+ Math.abs(validatedAmount - Number(order.totalAmount)) < 0.01 &&
+ (!validation.currency || validation.currency === "BDT");
+if (!isValidPayment) {
+ await OrderModel.findOneAndUpdate(
+ { orderId, paymentStatus: "pending" },
+ { paymentStatus: "failed", status: "cancelled" }
+ );
+return res.redirect(`${clientUrl}/order/fail/${orderId}?payment=failed`);
+}
+ const updatedOrder = await OrderModel.findOneAndUpdate(
+ { orderId, paymentStatus: "pending" },
+ {
+ paymentStatus: "paid",
+ status: "confirmed",
+ transactionId: validation.tran_id || tran_id,
+ validationId: val_id,
+ updatedAt: new Date()
+ },
+ { new: true }
+ );
+ if (!updatedOrder) {
+ return res.redirect(`${clientUrl}/order/fail/${orderId}?payment=failed`);
+ }
+ // ফ্রন্টএন্ডের নিজের সাকসেস পেজে রিডাইরেক্ট, যাতে ডিজাইন consistent থাকে
+ return res.redirect(`${clientUrl}/order/success/${orderId}?payment=success&tran_id=${encodeURIComponent(validation.tran_id || tran_id || orderId)}`);
+ } catch (error) {
+ console.log("Payment success error:", error.message);
+ return res.redirect(`${clientUrl}/order/fail/${orderId}?payment=failed`);
+ }
+
+}
+
+
+export const paymentFailController = async (req, res) => {
+ const { orderId } = req.params;
+ await OrderModel.findOneAndUpdate(
+ { orderId, paymentStatus: "pending" },
+ { paymentStatus: "failed", status: "cancelled" }
+ );
+ return res.redirect(`${clientUrl}/order/fail/${orderId}?payment=failed`);
+};
+export const paymentCancelController = async (req, res) => {
+ const { orderId } = req.params;
+ await OrderModel.findOneAndUpdate(
+ { orderId, paymentStatus: "pending" },
+ { paymentStatus: "failed", status: "cancelled" }
+ );
+ return res.redirect(`${clientUrl}/order/cancel/${orderId}?payment=cancelled`);
+};
+
+
+
+
+
+export const ipnController = async (req, res) => {
+ try {
+ const { tran_id, val_id, status } = req.body;
+ const validation = val_id ? await validatePaymentService(val_id) : null;
+ const order = await OrderModel.findOne({ orderId: tran_id, paymentStatus: "pending" });
+ const isValidPayment = validation &&
+  (status === "VALID" || status === "VALIDATED") &&
+  (validation.status === "VALID" || validation.status === "VALIDATED") &&
+  validation.tran_id === tran_id &&
+  Number(validation.amount) === Number(order?.totalAmount) &&
+  (!validation.currency || validation.currency === "BDT");
+ if (isValidPayment && order) {
+ await OrderModel.findOneAndUpdate(
+ { orderId: tran_id, paymentStatus: "pending" },
+ { paymentStatus: "paid", status: "confirmed", transactionId: tran_id, validationId: val_id }
+ );
+ }
+ return res.status(200).send("IPN received");
+ } catch (error) {
+ console.log("IPN error:", error.message);
+ return res.status(500).send("IPN error");
+ }
+};
+
+
