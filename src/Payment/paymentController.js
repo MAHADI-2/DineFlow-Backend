@@ -3,7 +3,11 @@ import { initiatePaymentService, validatePaymentService } from "./paymentService
 import { OrderModel } from "../model/Order.js";
 import config from "../config.js";
 
-const clientUrl = (config.CLIENT_URL || "http://localhost:5173").replace(/\/+$/, "");
+const productionClientUrl = "https://dine-flow-frontend-blond.vercel.app";
+const configuredClientUrl = (config.CLIENT_URL || "").trim().replace(/\/+$/, "");
+const clientUrl = configuredClientUrl && !/localhost|127\.0\.0\.1/i.test(configuredClientUrl)
+    ? configuredClientUrl
+    : productionClientUrl;
 
 
 export const initiatePaymentController = async (req, res) => {
