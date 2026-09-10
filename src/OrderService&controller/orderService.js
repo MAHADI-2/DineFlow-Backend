@@ -150,6 +150,9 @@ export const getOrderDetails = async (orderId, userId) => {
  const order = await OrderModel.findOne({
       orderId: orderId,
       userId: userId
+    }).populate({
+      path: "userId",
+      select: "phone addresses"
     });
     
     if (!order) {
