@@ -1,5 +1,13 @@
+import mongoose from "mongoose";
 import MenuItem from "../model/MenuItem.js";
 
+const menuIdFilters = (menuId) => {
+  const filters = [{ _id: menuId }, { id: menuId }];
+  if (mongoose.isValidObjectId(menuId)) {
+    filters.push({ _id: new mongoose.Types.ObjectId(menuId) });
+  }
+  return filters;
+};
 
 
 export const MenuService = async (data) => {
@@ -75,34 +83,32 @@ export const getMenu = async (req) => {
 export const UpdateMenu = async (data) => {
     try {
     const menuId = data.menu_id || data._id || data.id;
-  const menuItem = await MenuItem.findOne({
-    $or: [
-      { _id: menuId },
-      { id: menuId }
-    ]
-  });
-    if (!menuItem) {
-            return { status: "fail", message: "Menu data not found" };
-        }
-
-    const { menu_id, _id, id, ...updateFields } = data;
-    Object.assign(menuItem, updateFields);
-    const updatedData = await menuItem.save();
-    return { status: "success", message: "Food updated successfully", data: updatedData };
-
-    } catch (error) {
-        return { status: "fail", message: error.message };
+  const filter = { $or: menuIdFilters(menuId) };
+  const menuItem = await MenuItem.collection.findOne(filter);
+  if (!menuItem) {
+      return { status: "fail", message: "Menu data not found" };
     }
+
+  const { menu_id, _id, id, ...updateFields } = data;
+  await MenuItem.collection.updateOne(filter, { $set: updateFields });
+  const updatedData = await MenuItem.collection.findOne(filter);
+  return { status: "success", message: "Food updated successfully", data: updatedData };
+
+  } catch (error) {
+    return { status: "fail", message: error.message };
+  }
 }
 
 export const deleteMenu = async (menuId) => {
-    try {
-        const deletedData = await MenuItem.findByIdAndDelete(menuId);
-        if (!deletedData) {
-            return { status: "fail", message: "Menu data not found" };
-        }
-        return { status: "success", data: deletedData };
-    } catch (error) {
-        return { status: "fail", message: error.message };
+  try {
+    const filter = { $or: menuIdFilters(menuId) };
+    const deletedData = await MenuItem.collection.findOne(filter);
+    if (!deletedData) {
+      return { status: "fail", message: "Menu data not found" };
     }
+    await MenuItem.collection.deleteOne(filter);
+    return { status: "success", data: deletedData };
+  } catch (error) {
+    return { status: "fail", message: error.message };
+  }
 }

@@ -1,7 +1,16 @@
+import mongoose from "mongoose";
 import MenuItem from "../model/MenuItem.js";
 import { OrderModel } from "../model/Order.js";
 
 const DELIVERY_FEE = 60; // taka
+
+const menuIdFilters = (menuId) => {
+  const filters = [{ _id: menuId }, { id: menuId }];
+  if (mongoose.isValidObjectId(menuId)) {
+    filters.push({ _id: new mongoose.Types.ObjectId(menuId) });
+  }
+  return filters;
+};
 
 const calculatePromoDiscount = (promoCode, amount) => {
   const code = String(promoCode || "").trim().toUpperCase();
@@ -48,12 +57,9 @@ export const createOrder = async (data) => {
         item.menuItem || item.menuId || item.id || item.menuItemId || item._id
       )?.toString();
       
-      const dbItem = await MenuItem.findOne({
-        $or: [
-          { _id: currentId },
-          { id: currentId }
-        ]
-      }).lean();
+      const dbItem = await MenuItem.collection.findOne({
+        $or: menuIdFilters(currentId)
+      });
 
       console.log("Found DB item:", dbItem ? {
         id: dbItem._id,

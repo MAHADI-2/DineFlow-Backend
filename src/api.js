@@ -55,8 +55,11 @@ router.post("/placeOrder", AUTH, placeOrderController)
 
 
 router.post("/payment/success/:orderId", paymentSuccessController);
+router.get("/payment/success/:orderId", paymentSuccessController);
 router.post("/payment/fail/:orderId", paymentFailController);
+router.get("/payment/fail/:orderId", paymentFailController);
 router.post("/payment/cancel/:orderId", paymentCancelController);
+router.get("/payment/cancel/:orderId", paymentCancelController);
 router.post("/payment/ipn", ipnController);
 
 router.get("/orderDetails/:orderId", AUTH, getOrderDetailsController);

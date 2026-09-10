@@ -90,7 +90,7 @@ export const paymentSuccessController = async (req, res) => {
 try {
     
 const { orderId } = req.params;
- const { val_id, tran_id } = req.body;
+ const { val_id, tran_id } = { ...req.query, ...req.body };
  const order = await OrderModel.findOne({ orderId, paymentStatus: "pending" });
  if (!order || (tran_id && tran_id !== order.orderId)) {
  return res.redirect(`${clientUrl}/order/fail/${orderId}?payment=failed`);

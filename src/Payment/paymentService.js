@@ -7,14 +7,18 @@ const is_live = config.SSL_IS_LIVE;
 
 export const initiatePaymentService = async (order) => {
   try {
+    const serverUrl = config.SERVER_URL?.replace(/\/+$/, "");
+    if (!store_id || !store_passwd || !serverUrl) {
+      throw new Error("SSLCommerz production configuration is incomplete");
+    }
     const data = {
       total_amount: order.totalAmount,
       currency: "BDT",
       tran_id: order.orderId,
-      success_url: `${config.SERVER_URL}/api/v1/payment/success/${order.orderId}`,
-      fail_url: `${config.SERVER_URL}/api/v1/payment/fail/${order.orderId}`,
-      cancel_url: `${config.SERVER_URL}/api/v1/payment/cancel/${order.orderId}`,
-      ipn_url: `${config.SERVER_URL}/api/v1/payment/ipn`,
+      success_url: `${serverUrl}/api/v1/payment/success/${order.orderId}`,
+      fail_url: `${serverUrl}/api/v1/payment/fail/${order.orderId}`,
+      cancel_url: `${serverUrl}/api/v1/payment/cancel/${order.orderId}`,
+      ipn_url: `${serverUrl}/api/v1/payment/ipn`,
       shipping_method: "Courier",
       product_name: "Food Order",
       product_category: "Food",
