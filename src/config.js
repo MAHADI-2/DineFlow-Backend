@@ -15,6 +15,7 @@ const config = {
   SSL_STORE_ID: process.env.SSL_STORE_ID,
   SSL_STORE_PASSWORD: process.env.SSL_STORE_PASSWORD,
   SSL_IS_LIVE: process.env.SSL_IS_LIVE === "true",
+  BACKEND_URL: process.env.BACKEND_URL,
   SERVER_URL: process.env.SERVER_URL,
   CLIENT_URL: process.env.CLIENT_URL,
   CORS_ORIGINS: process.env.CORS_ORIGINS || process.env.CLIENT_URL,

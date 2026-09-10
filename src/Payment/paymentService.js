@@ -4,10 +4,18 @@ import config from "../config.js";
 const store_id = config.SSL_STORE_ID;
 const store_passwd = config.SSL_STORE_PASSWORD;
 const is_live = config.SSL_IS_LIVE;
+const productionBackendUrl = "https://dineflow-backend-c92v.onrender.com";
+
+const getBackendUrl = () => {
+  const configuredUrl = (config.BACKEND_URL || config.SERVER_URL || "").trim().replace(/\/+$/, "");
+  return configuredUrl && !/localhost|127\.0\.0\.1/i.test(configuredUrl)
+    ? configuredUrl
+    : productionBackendUrl;
+};
 
 export const initiatePaymentService = async (order) => {
   try {
-    const serverUrl = config.SERVER_URL?.replace(/\/+$/, "");
+    const serverUrl = getBackendUrl();
     if (!store_id || !store_passwd || !serverUrl) {
       throw new Error("SSLCommerz production configuration is incomplete");
     }
