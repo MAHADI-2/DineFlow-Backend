@@ -9,6 +9,9 @@ const clientUrl = configuredClientUrl && !/localhost|127\.0\.0\.1/i.test(configu
     ? configuredClientUrl
     : productionClientUrl;
 
+const normalizeValue = (value) => String(value ?? "").trim();
+const isValidGatewayStatus = (status) => ["VALID", "VALIDATED"].includes(normalizeValue(status).toUpperCase());
+
 
 export const initiatePaymentController = async (req, res) => {
     try {
@@ -95,20 +98,34 @@ try {
     
 const { orderId } = req.params;
  const { val_id, tran_id } = { ...req.query, ...req.body };
+ const callbackTransactionId = normalizeValue(tran_id);
+ const validationId = normalizeValue(val_id);
  const order = await OrderModel.findOne({ orderId, paymentStatus: "pending" });
- if (!order || (tran_id && tran_id !== order.orderId)) {
+ if (!order || (callbackTransactionId && callbackTransactionId !== normalizeValue(order.orderId)) || !validationId) {
  return res.redirect(`${clientUrl}/order/fail/${orderId}?payment=failed`);
  }
 
-const validation = await validatePaymentService(val_id);
+const validation = await validatePaymentService(validationId);
 const validatedAmount = Number(validation.amount);
+const validatedTransactionId = normalizeValue(validation.tran_id);
+const validatedCurrency = normalizeValue(validation.currency || validation.currency_type).toUpperCase();
 const isValidPayment =
- (validation.status === "VALID" || validation.status === "VALIDATED") &&
- (!validation.tran_id || validation.tran_id === order.orderId) &&
+ isValidGatewayStatus(validation.status) &&
+ (!validatedTransactionId || validatedTransactionId === normalizeValue(order.orderId)) &&
  Number.isFinite(validatedAmount) &&
  Math.abs(validatedAmount - Number(order.totalAmount)) < 0.01 &&
- (!validation.currency || validation.currency === "BDT");
+ (!validatedCurrency || validatedCurrency === "BDT");
 if (!isValidPayment) {
+ console.error("SSLCommerz validation rejected:", {
+     orderId,
+     status: validation.status,
+     callbackTransactionId,
+     validatedTransactionId,
+     validatedAmount,
+     expectedAmount: Number(order.totalAmount),
+     validatedCurrency,
+     hasValidationId: Boolean(validationId)
+ });
  await OrderModel.findOneAndUpdate(
  { orderId, paymentStatus: "pending" },
  { paymentStatus: "failed", status: "cancelled" }
@@ -121,7 +138,7 @@ return res.redirect(`${clientUrl}/order/fail/${orderId}?payment=failed`);
  paymentStatus: "paid",
  status: "confirmed",
  transactionId: validation.tran_id || tran_id,
- validationId: val_id,
+ validationId,
  updatedAt: new Date()
  },
  { new: true }
@@ -130,7 +147,7 @@ return res.redirect(`${clientUrl}/order/fail/${orderId}?payment=failed`);
  return res.redirect(`${clientUrl}/order/fail/${orderId}?payment=failed`);
  }
  // ফ্রন্টএন্ডের নিজের সাকসেস পেজে রিডাইরেক্ট, যাতে ডিজাইন consistent থাকে
- return res.redirect(`${clientUrl}/order/success/${orderId}?payment=success&tran_id=${encodeURIComponent(validation.tran_id || tran_id || orderId)}`);
+ return res.redirect(`${clientUrl}/order/success/${orderId}?payment=success&tran_id=${encodeURIComponent(validatedTransactionId || callbackTransactionId || orderId)}`);
  } catch (error) {
  console.log("Payment success error:", error.message);
  return res.redirect(`${clientUrl}/order/fail/${orderId}?payment=failed`);
