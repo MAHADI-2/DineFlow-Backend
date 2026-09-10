@@ -11,6 +11,8 @@ const clientUrl = configuredClientUrl && !/localhost|127\.0\.0\.1/i.test(configu
 
 const normalizeValue = (value) => String(value ?? "").trim();
 const isValidGatewayStatus = (status) => ["VALID", "VALIDATED"].includes(normalizeValue(status).toUpperCase());
+const successRedirect = (orderId, transactionId) =>
+    `${clientUrl}/order/success/${orderId}?payment=success&tran_id=${encodeURIComponent(transactionId || orderId)}`;
 
 
 export const initiatePaymentController = async (req, res) => {
@@ -100,9 +102,15 @@ const { orderId } = req.params;
  const { val_id, tran_id } = { ...req.query, ...req.body };
  const callbackTransactionId = normalizeValue(tran_id);
  const validationId = normalizeValue(val_id);
- const order = await OrderModel.findOne({ orderId, paymentStatus: "pending" });
- if (!order || (callbackTransactionId && callbackTransactionId !== normalizeValue(order.orderId)) || !validationId) {
+ const order = await OrderModel.findOne({ orderId });
+ if (!order || (callbackTransactionId && callbackTransactionId !== normalizeValue(order.orderId))) {
  return res.redirect(`${clientUrl}/order/fail/${orderId}?payment=failed`);
+ }
+ if (order.paymentStatus === "paid") {
+     return res.redirect(successRedirect(orderId, order.transactionId || callbackTransactionId));
+ }
+ if (order.paymentStatus !== "pending" || !validationId) {
+     return res.redirect(`${clientUrl}/order/fail/${orderId}?payment=failed`);
  }
 
 const validation = await validatePaymentService(validationId);
@@ -144,10 +152,14 @@ return res.redirect(`${clientUrl}/order/fail/${orderId}?payment=failed`);
  { new: true }
  );
  if (!updatedOrder) {
- return res.redirect(`${clientUrl}/order/fail/${orderId}?payment=failed`);
+     const currentOrder = await OrderModel.findOne({ orderId });
+     if (currentOrder?.paymentStatus === "paid") {
+         return res.redirect(successRedirect(orderId, currentOrder.transactionId || callbackTransactionId));
+     }
+     return res.redirect(`${clientUrl}/order/fail/${orderId}?payment=failed`);
  }
  // ফ্রন্টএন্ডের নিজের সাকসেস পেজে রিডাইরেক্ট, যাতে ডিজাইন consistent থাকে
- return res.redirect(`${clientUrl}/order/success/${orderId}?payment=success&tran_id=${encodeURIComponent(validatedTransactionId || callbackTransactionId || orderId)}`);
+ return res.redirect(successRedirect(orderId, validatedTransactionId || callbackTransactionId));
  } catch (error) {
  console.log("Payment success error:", error.message);
  return res.redirect(`${clientUrl}/order/fail/${orderId}?payment=failed`);
@@ -180,18 +192,23 @@ export const paymentCancelController = async (req, res) => {
 export const ipnController = async (req, res) => {
  try {
  const { tran_id, val_id, status } = req.body;
- const validation = val_id ? await validatePaymentService(val_id) : null;
- const order = await OrderModel.findOne({ orderId: tran_id, paymentStatus: "pending" });
+ const callbackTransactionId = normalizeValue(tran_id);
+ const validationId = normalizeValue(val_id);
+ const validation = validationId ? await validatePaymentService(validationId) : null;
+ const order = await OrderModel.findOne({ orderId: callbackTransactionId, paymentStatus: "pending" });
+ const validatedTransactionId = normalizeValue(validation?.tran_id);
+ const validatedCurrency = normalizeValue(validation?.currency || validation?.currency_type).toUpperCase();
  const isValidPayment = validation &&
-  (status === "VALID" || status === "VALIDATED") &&
-  (validation.status === "VALID" || validation.status === "VALIDATED") &&
-  validation.tran_id === tran_id &&
-  Number(validation.amount) === Number(order?.totalAmount) &&
-  (!validation.currency || validation.currency === "BDT");
+  isValidGatewayStatus(status) &&
+  isValidGatewayStatus(validation.status) &&
+  validatedTransactionId === callbackTransactionId &&
+  Number.isFinite(Number(validation.amount)) &&
+  Math.abs(Number(validation.amount) - Number(order?.totalAmount)) < 0.01 &&
+  (!validatedCurrency || validatedCurrency === "BDT");
  if (isValidPayment && order) {
  await OrderModel.findOneAndUpdate(
- { orderId: tran_id, paymentStatus: "pending" },
- { paymentStatus: "paid", status: "confirmed", transactionId: tran_id, validationId: val_id }
+ { orderId: callbackTransactionId, paymentStatus: "pending" },
+ { paymentStatus: "paid", status: "confirmed", transactionId: validatedTransactionId, validationId }
  );
  }
  return res.status(200).send("IPN received");
