@@ -28,10 +28,14 @@ app.use(cors({
     origin: (origin, callback) => {
         if (!origin) return callback(null, true);
 
-        const allowedOrigins = (process.env.CORS_ORIGINS || process.env.CLIENT_URL || "http://localhost:5173,http://localhost:3000")
+        const configuredOrigins = (process.env.CORS_ORIGINS || process.env.CLIENT_URL || "http://localhost:5173,http://localhost:3000")
             .split(",")
             .map((value) => value.trim())
             .filter(Boolean);
+        const allowedOrigins = [...new Set([
+            ...configuredOrigins,
+            "https://dine-flow-frontend-blond.vercel.app"
+        ])];
 
         let isSslCommerzOrigin = false;
         try {
@@ -46,6 +50,8 @@ app.use(cors({
         }
         return callback(null, false);
     },
+    methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "token"],
     credentials: true
 }));
 

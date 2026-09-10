@@ -60,6 +60,7 @@ export const UpdateMenuController = async (req, res) => {
         if (result.status === "success") {
             return res.status(200).json(result);
         }
+        return res.status(404).json(result);
     } catch (error) {
         return res.status(500).json({
             status: "fail",

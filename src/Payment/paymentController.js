@@ -48,11 +48,17 @@ export const initiatePaymentController = async (req, res) => {
             promoCode
         });
 
-        const gatewayUrl = await initiatePaymentService(orderResult.data);
+        const session = await initiatePaymentService(orderResult.data);
+        if (session.status !== "success" || !session.url) {
+            return res.status(502).json({
+                status: "fail",
+                message: session.message || "Failed to initiate payment session"
+            });
+        }
         return res.status(200).json({
             status: "success",
             message: "Redirect to payment gateway",
-            url: gatewayUrl.data,
+            url: session.url,
             orderId
         });
 

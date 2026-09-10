@@ -29,17 +29,18 @@ export const createOrder = async (data) => {
       throw new Error("At least one menu item is required");
     }
 
-    // ১. ফ্রন্টএন্ড থেকে পাঠানো সব আইডি সংগ্রহ করা
+    // ১. ফ্রন্টএন্ডের বিভিন্ন cart shape থেকে সব আইডি সংগ্রহ করা
     const itemIds = items.map((item) => (
       item.menuItem || item.menuId || item.id || item.menuItemId || item._id
     )?.toString());
+    console.log("Order items received:", items);
     if (itemIds.some((id) => !id || !/^[a-f\d]{24}$/i.test(id))) {
       throw new Error("Invalid menu item id");
     }
 
     // ২. ডাটাবেজ থেকে খাবারগুলো খুঁজে বের করা
     const allItems = await MenuItem.find({
-      _id: { $in: itemIds }
+      _id: { $in: [...new Set(itemIds)] }
     });
 
     let totalAmount = 0;
@@ -57,8 +58,16 @@ export const createOrder = async (data) => {
       
       // ডাটাবেজের আইটেমের সাথে মেলানো
       const dbItem = allItems.find((x) => x._id.toString() === currentId);
+      console.log("Found DB item:", dbItem ? {
+        id: dbItem._id,
+        name: dbItem.name,
+        isAvailable: dbItem.isAvailable
+      } : null);
 
       if (!dbItem) throw new Error("Menu item not found");
+      if (dbItem.isAvailable === false) {
+        throw new Error("One or more menu items are no longer available");
+      }
       const price = Number(dbItem.price);
       const name = dbItem.name;
       const qty = Number(item.quantity);
