@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import MenuItem from "../model/MenuItem.js";
 import { OrderModel } from "../model/Order.js";
 
@@ -38,17 +39,9 @@ export const createOrder = async (data) => {
       throw new Error("Invalid menu item id");
     }
 
-    // ২. ডাটাবেজ থেকে খাবারগুলো খুঁজে বের করা
-    const allItems = await MenuItem.find({
-      _id: { $in: [...new Set(itemIds)] }
-    });
-
     let totalAmount = 0;
     const myItemsList = [];
-
-    if (allItems.length !== new Set(itemIds).size) {
-      throw new Error("One or more menu items are no longer available");
-    }
+    const allItems = [];
 
     // ৩. প্রতিটি আইটেমের দাম সার্ভারের database থেকে হিসাব করা
     for (const item of items) {
@@ -56,18 +49,39 @@ export const createOrder = async (data) => {
         item.menuItem || item.menuId || item.id || item.menuItemId || item._id
       )?.toString();
       
-      // ডাটাবেজের আইটেমের সাথে মেলানো
-      const dbItem = allItems.find((x) => x._id.toString() === currentId);
+      let dbItem = null;
+      try {
+        const objectId = new mongoose.Types.ObjectId(currentId);
+        dbItem = await MenuItem.findById(objectId);
+      } catch (lookupError) {
+        console.log("Menu item lookup failed:", {
+          itemId: currentId,
+          error: lookupError.message
+        });
+        dbItem = await MenuItem.findOne({ _id: currentId });
+      }
+
       console.log("Found DB item:", dbItem ? {
         id: dbItem._id,
         name: dbItem.name,
-        isAvailable: dbItem.isAvailable
+        isAvailable: dbItem.isAvailable,
+        available: dbItem.available
       } : null);
 
-      if (!dbItem) throw new Error("Menu item not found");
-      if (dbItem.isAvailable === false) {
+      if (!dbItem) {
+        console.log(`Menu item not found in DB for ID: ${currentId}`);
         throw new Error("One or more menu items are no longer available");
       }
+      if (dbItem.isAvailable === false || dbItem.available === false) {
+        console.log("Menu item is unavailable:", {
+          itemId: currentId,
+          name: dbItem.name,
+          isAvailable: dbItem.isAvailable,
+          available: dbItem.available
+        });
+        throw new Error(`${dbItem.name} is currently out of stock`);
+      }
+      allItems.push(dbItem);
       const price = Number(dbItem.price);
       const name = dbItem.name;
       const qty = Number(item.quantity);

@@ -70,7 +70,9 @@ export const initiatePaymentController = async (req, res) => {
             "Menu item not found",
             "Quantity must be a whole number between 1 and 99"
         ];
-        return res.status(clientInputErrors.includes(error.message) ? 400 : 500).json({
+        const isClientInputError = clientInputErrors.includes(error.message)
+            || error.message.endsWith("is currently out of stock");
+        return res.status(isClientInputError ? 400 : 500).json({
             status: "fail",
             message: error.message || "Payment initialization failed"
         });

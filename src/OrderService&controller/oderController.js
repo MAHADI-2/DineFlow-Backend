@@ -19,7 +19,7 @@ export const createOrderController = async (req, res) => {
         "One or more menu items are no longer available",
         "Menu item not found",
         "Quantity must be a whole number between 1 and 99"
-      ].includes(error.message);
+      ].includes(error.message) || error.message.endsWith("is currently out of stock");
       res.status(isClientInputError ? 400 : 500).json({
         status: "fail",
         message: error.message || "Something went wrong"
