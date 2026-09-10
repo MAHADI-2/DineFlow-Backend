@@ -1,4 +1,3 @@
-import mongoose from "mongoose";
 import MenuItem from "../model/MenuItem.js";
 import { OrderModel } from "../model/Order.js";
 
@@ -49,17 +48,12 @@ export const createOrder = async (data) => {
         item.menuItem || item.menuId || item.id || item.menuItemId || item._id
       )?.toString();
       
-      let dbItem = null;
-      try {
-        const objectId = new mongoose.Types.ObjectId(currentId);
-        dbItem = await MenuItem.findById(objectId);
-      } catch (lookupError) {
-        console.log("Menu item lookup failed:", {
-          itemId: currentId,
-          error: lookupError.message
-        });
-        dbItem = await MenuItem.findOne({ _id: currentId });
-      }
+      const dbItem = await MenuItem.findOne({
+        $or: [
+          { _id: currentId },
+          { id: currentId }
+        ]
+      }).lean();
 
       console.log("Found DB item:", dbItem ? {
         id: dbItem._id,

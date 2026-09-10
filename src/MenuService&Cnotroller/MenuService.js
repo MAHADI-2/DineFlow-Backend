@@ -75,7 +75,12 @@ export const getMenu = async (req) => {
 export const UpdateMenu = async (data) => {
     try {
     const menuId = data.menu_id || data._id || data.id;
-    const menuItem = await MenuItem.findById(menuId);
+  const menuItem = await MenuItem.findOne({
+    $or: [
+      { _id: menuId },
+      { id: menuId }
+    ]
+  });
     if (!menuItem) {
             return { status: "fail", message: "Menu data not found" };
         }
