@@ -74,21 +74,16 @@ export const getMenu = async (req) => {
 
 export const UpdateMenu = async (data) => {
     try {
-        const menuId = data.menu_id;
-        
-        // ডেটা থেকে menu_id বাদ দিয়ে বাকি ফিল্ডগুলো আলাদা করুন
-        const { menu_id: _, ...updateFields } = data;
-
-        const updatedData = await MenuItem.findByIdAndUpdate(
-            menuId, 
-            updateFields, 
-            { new: true, runValidators: true }
-        );
-
-        if (!updatedData) {
+    const menuId = data.menu_id || data._id || data.id;
+    const menuItem = await MenuItem.findById(menuId);
+    if (!menuItem) {
             return { status: "fail", message: "Menu data not found" };
         }
-        return { status: "success", data: updatedData };
+
+    const { menu_id, _id, id, ...updateFields } = data;
+    Object.assign(menuItem, updateFields);
+    const updatedData = await menuItem.save();
+    return { status: "success", message: "Food updated successfully", data: updatedData };
 
     } catch (error) {
         return { status: "fail", message: error.message };

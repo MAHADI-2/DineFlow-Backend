@@ -48,13 +48,13 @@ export const getMenuContrioller = async (req, res) => {
 
 export const UpdateMenuController = async (req, res) => {
     try {
-        const body = req.body;
-        const menu_id = req.params.menu_id;
+        const body = Array.isArray(req.body) ? req.body[0] : req.body;
+        const menu_id = req.params.menu_id || req.params.id || body?._id || body?.id;
+        if (!menu_id) {
+            return res.status(400).json({ status: "fail", message: "Menu item ID is required" });
+        }
         
-        // যদি বডি অ্যারে আকারে আসে, তবে প্রথম অবজেক্টটি নিন, না হলে সরাসরি body নিন
-        const updateFields = Array.isArray(body) ? body[0] : body;
-        
-        const data = { menu_id, ...updateFields };
+        const data = { menu_id, ...body };
         const result = await UpdateMenu(data);
         
         if (result.status === "success") {
