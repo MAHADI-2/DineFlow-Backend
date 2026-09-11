@@ -20,12 +20,6 @@ export const CreateUser = async (name, email, password, addresses) => {
         // OTP ১০ মিনিট পর্যন্ত ভ্যালিড থাকবে
         const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
 
-        // Email এ OTP পাঠানো
-        const subject = "OTP Verification";
-        const text = `Your OTP is ${otp}. This code will expire in 10 minutes.`;
-
-        const emailResult = await SendEmail(email, subject, text);
-
         // Password hash
         const salt = await bcrypt.genSalt(10);
 
@@ -46,25 +40,28 @@ export const CreateUser = async (name, email, password, addresses) => {
             isValid: false
         });
 
-        const response = {
+        // Email delivery must not delay the registration response.
+        SendEmail(
+            email,
+            "Your DineFlow OTP Code",
+            `Your verification code is: ${otp}`
+        ).catch((error) => {
+            console.error(
+                "Background email send error (ignored to prevent hang):",
+                error.message
+            );
+        });
+
+        return {
             status: "201",
-            message: "User registered successfully",
+            message: "User registered successfully. OTP sent to email.",
             user: {
-                id: user._id,
+                _id: user._id,
                 name: user.name,
                 email: user.email
-            }
+            },
+            otp
         };
-
-        if (!emailResult?.sent) {
-            response.data = {
-                emailDelivery: "fallback",
-                otp
-            };
-            response.message = "User registered successfully. Email delivery is delayed.";
-        }
-
-        return response;
 
     } catch (error) {
 
