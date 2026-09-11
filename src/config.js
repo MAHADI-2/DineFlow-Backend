@@ -3,7 +3,7 @@ dotenv.config();
 
 const config = {
   port: process.env.PORT || 3000,
-  MONGO_URL: process.env.MONGO_URL,
+  MONGO_URL: process.env.MONGO_URL || process.env.MONGODB_URI || process.env.MONGO_URI,
   SECRET_PASS: process.env.SECRET_PASS,
   BREVO_SMTP_USER: process.env.BREVO_SMTP_USER,
   SMTP_PORT: process.env.SMTP_PORT,

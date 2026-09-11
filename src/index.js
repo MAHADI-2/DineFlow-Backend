@@ -6,6 +6,10 @@ import User from "./model/User.js";
 
 const { port, MONGO_URL } = config;
 
+if (!MONGO_URL) {
+    throw new Error("MongoDB connection string is missing. Set MONGO_URL to your MongoDB Atlas URI.");
+}
+
 const demoUsers = [
     {
         name: "System Admin",
