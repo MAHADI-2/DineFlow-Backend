@@ -131,7 +131,7 @@ export const createReviewController = async (req, res) => {
     });
   } catch (error) {
     if (error?.code === 11000) {
-      return res.status(409).json({ status: "fail", message: "This item has already been reviewed" });
+      return res.status(409).json({ status: "fail", message: "This item has already been reviewed", alreadyReviewed: true });
     }
     console.error("Create review error:", error.message);
     return res.status(500).json({ status: "fail", message: "Unable to submit review" });
