@@ -25,6 +25,7 @@ import {paymentSuccessController,
 import { getProfileController, updateProfileController } from "./UpdateProfile/updateProfileController.js";
  import { forgotPasswordController, resetPasswordController } from "./ForgotPassword/forgotPasswordController.js";
 import { createTableBookingController, getAllTableBookingsController, getMyTableBookingsController, updateTableBookingController } from "./TableBooking/tableBookingController.js";
+import { createReviewController, getAdminReviewsController } from "./Review/reviewController.js";
 
 router.post("/createUser",registerController);
 router.post("/verifyOtp",verifyOtpController)
@@ -40,6 +41,8 @@ router.post("/logout", AUTH, logout);
 
 router.post("/createMenu", AUTH, isAdmin, MenuController)
 router.post("/menu/:menuItemId/review", AUTH, addReviewController);
+router.post("/reviews/create", AUTH, createReviewController);
+router.get("/reviews/admin", AUTH, isAdmin, getAdminReviewsController);
 router.get("/getMenu",getMenuContrioller)
 router.post("/uploadMenuImage", AUTH, isAdmin, upload.single("file"), uploadMenuImageController)
 router.put("/updateMenu/:menu_id", AUTH, isAdmin, UpdateMenuController)

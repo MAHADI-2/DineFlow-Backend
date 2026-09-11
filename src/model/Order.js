@@ -16,7 +16,11 @@ const orderSchema = new mongoose.Schema({
     itemName: String,
     quantity: Number,
     price: Number,
-    subtotal: Number
+    subtotal: Number,
+    isReviewed: {
+      type: Boolean,
+      default: false
+    }
   }],
  totalAmount: {
     type: Number,
