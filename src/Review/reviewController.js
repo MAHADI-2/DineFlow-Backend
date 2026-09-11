@@ -13,10 +13,12 @@ const allowedExperiences = new Set([
 
 export const createReviewController = async (req, res) => {
   try {
-    const { orderId, menuItemId, rating, comment = "", serviceExperience = [] } = req.body;
+    const { orderId, rating, comment = "", serviceExperience = [] } = req.body;
+    const rawTargetId = req.body.menuItemId || req.body.foodId || req.body.itemId;
     const userId = req.headers.user_id;
+    const targetId = rawTargetId?._id || rawTargetId?.id || rawTargetId;
 
-    if (!orderId || !menuItemId || !mongoose.isValidObjectId(menuItemId)) {
+    if (!orderId || !targetId || !mongoose.isValidObjectId(targetId)) {
       return res.status(400).json({ status: "fail", message: "Order and menu item are required" });
     }
 
@@ -41,7 +43,7 @@ export const createReviewController = async (req, res) => {
       return res.status(400).json({ status: "fail", message: "Reviews are available after delivery" });
     }
 
-    const orderItem = order.items.find((item) => String(item.menuItemId) === String(menuItemId));
+    const orderItem = order.items.find((item) => String(item.menuItemId) === String(targetId));
     if (!orderItem) {
       return res.status(400).json({ status: "fail", message: "This menu item is not part of the order" });
     }
@@ -51,7 +53,7 @@ export const createReviewController = async (req, res) => {
 
     const [user, menuItem] = await Promise.all([
       User.findById(userId).select("name").lean(),
-      MenuItem.findById(menuItemId)
+      MenuItem.findById(targetId)
     ]);
     if (!menuItem) {
       return res.status(404).json({ status: "fail", message: "Food item not found" });
@@ -59,7 +61,7 @@ export const createReviewController = async (req, res) => {
 
     const review = await Review.create({
       orderId,
-      menuItem: menuItemId,
+      menuItem: targetId,
       userId,
       customerName: user?.name || "Customer",
       rating: numericRating,
@@ -84,9 +86,10 @@ export const createReviewController = async (req, res) => {
     );
     await menuItem.save();
 
-    return res.status(201).json({
+    return res.status(200).json({
+      success: true,
       status: "success",
-      message: "Review submitted successfully",
+      message: "Thank you for your feedback!",
       data: review
     });
   } catch (error) {
