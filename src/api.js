@@ -24,6 +24,7 @@ import {paymentSuccessController,
  import upload from "./midleware/upload.js";
 import { getProfileController, updateProfileController } from "./UpdateProfile/updateProfileController.js";
  import { forgotPasswordController, resetPasswordController } from "./ForgotPassword/forgotPasswordController.js";
+import { createTableBookingController, getAllTableBookingsController, updateTableBookingController } from "./TableBooking/tableBookingController.js";
 
 router.post("/createUser",registerController);
 router.post("/verifyOtp",verifyOtpController)
@@ -71,6 +72,10 @@ router.put("/updateOrder/:orderId/", AUTH, isAdmin, updateOrderPaymentStatusCont
 
 
 router.put("/order/:orderId/mark-paid", AUTH, isAdmin, markAsPaidController);
+
+router.post("/tableBookings", AUTH, createTableBookingController);
+router.get("/tableBookings", AUTH, isAdmin, getAllTableBookingsController);
+router.patch("/tableBookings/:bookingId", AUTH, isAdmin, updateTableBookingController);
 
 
 
