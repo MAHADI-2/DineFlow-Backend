@@ -102,3 +102,25 @@ export const addReviewController = async (req, res) => {
     return res.status(500).json({ status: "fail", message: error.message });
   }
 };
+
+export const uploadMenuImageController = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        status: "fail",
+        message: "Please select an image"
+      });
+    }
+
+    return res.status(200).json({
+      status: "success",
+      message: "Image uploaded successfully",
+      image: req.file.path
+    });
+  } catch (error) {
+    return res.status(500).json({
+      status: "fail",
+      message: error.message
+    });
+  }
+};
