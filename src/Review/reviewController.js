@@ -55,17 +55,19 @@ export const createReviewController = async (req, res) => {
     }
 
     const menuItemId = orderItem.menuItemId;
-    const [user, menuItem] = await Promise.all([
+    const menuLookupId = mongoose.isValidObjectId(menuItemId) ? menuItemId : targetId;
+    const [user, menuItemById] = await Promise.all([
       User.findById(userId).select("name").lean(),
-      MenuItem.findById(menuItemId)
+      MenuItem.findById(menuLookupId)
     ]);
+    const menuItem = menuItemById || await MenuItem.findOne({ name: orderItem.itemName });
     if (!menuItem) {
       return res.status(404).json({ status: "fail", message: "Food item not found" });
     }
 
     const review = await Review.create({
       orderId,
-      menuItem: menuItemId,
+      menuItem: menuItem._id,
       userId,
       customerName: user?.name || "Customer",
       rating: numericRating,
