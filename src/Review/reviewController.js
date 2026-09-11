@@ -75,15 +75,44 @@ export const createReviewController = async (req, res) => {
       return res.status(404).json({ status: "fail", message: "Food item not found" });
     }
 
-    const review = await Review.create({
-      orderId,
-      menuItem: menuItem._id,
-      userId,
-      customerName: user?.name || "Customer",
-      rating: numericRating,
-      serviceExperience: experiences,
-      comment: cleanComment
-    });
+    const existingReview = await Review.findOne({ orderId, menuItem: menuItem._id, userId }).lean();
+    if (existingReview) {
+      const hasStoredReview = menuItem.reviews?.some((storedReview) => (
+        String(storedReview.userId) === String(userId) &&
+        Number(storedReview.rating) === Number(existingReview.rating) &&
+        storedReview.comment === existingReview.comment
+      ));
+
+      if (!hasStoredReview) {
+        menuItem.reviews.push({
+          userId,
+          userName: existingReview.customerName || user?.name || "Customer",
+          rating: existingReview.rating,
+          comment: existingReview.comment || "",
+          tags: existingReview.serviceExperience || [],
+          createdAt: existingReview.createdAt
+        });
+        menuItem.numReviews = menuItem.reviews.length;
+        menuItem.rating = Number((menuItem.reviews.reduce(
+          (total, storedReview) => total + Number(storedReview.rating || 0),
+          0
+        ) / menuItem.reviews.length).toFixed(1));
+        await menuItem.save();
+      }
+
+      await OrderModel.updateOne(
+        { _id: order._id, "items._id": orderItem._id },
+        { $set: { "items.$.isReviewed": true, updatedAt: new Date() } }
+      );
+
+      return res.status(200).json({
+        success: true,
+        status: "success",
+        message: "This item is already rated",
+        alreadyReviewed: true,
+        data: existingReview
+      });
+    }
 
     const menuItemQuery = mongoose.isValidObjectId(menuItem._id)
       ? { _id: menuItem._id }
@@ -108,6 +137,16 @@ export const createReviewController = async (req, res) => {
     if (!updatedItem) {
       return res.status(404).json({ status: "fail", message: "Food item not found" });
     }
+
+    const review = await Review.create({
+      orderId,
+      menuItem: updatedItem._id,
+      userId,
+      customerName: user?.name || "Customer",
+      rating: numericRating,
+      serviceExperience: experiences,
+      comment: cleanComment
+    });
 
     const updatedReviews = Array.isArray(updatedItem.reviews) ? updatedItem.reviews : [];
     const averageRating = updatedReviews.reduce(
