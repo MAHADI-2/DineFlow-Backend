@@ -43,7 +43,10 @@ export const createReviewController = async (req, res) => {
       return res.status(400).json({ status: "fail", message: "Reviews are available after delivery" });
     }
 
-    const orderItem = order.items.find((item) => String(item.menuItemId) === String(targetId));
+    const orderItem = order.items.find((item) => (
+      String(item.menuItemId) === String(targetId) ||
+      String(item._id) === String(targetId)
+    ));
     if (!orderItem) {
       return res.status(400).json({ status: "fail", message: "This menu item is not part of the order" });
     }
@@ -51,9 +54,10 @@ export const createReviewController = async (req, res) => {
       return res.status(409).json({ status: "fail", message: "This item has already been reviewed" });
     }
 
+    const menuItemId = orderItem.menuItemId;
     const [user, menuItem] = await Promise.all([
       User.findById(userId).select("name").lean(),
-      MenuItem.findById(targetId)
+      MenuItem.findById(menuItemId)
     ]);
     if (!menuItem) {
       return res.status(404).json({ status: "fail", message: "Food item not found" });
@@ -61,7 +65,7 @@ export const createReviewController = async (req, res) => {
 
     const review = await Review.create({
       orderId,
-      menuItem: targetId,
+      menuItem: menuItemId,
       userId,
       customerName: user?.name || "Customer",
       rating: numericRating,
