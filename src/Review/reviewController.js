@@ -16,10 +16,11 @@ export const createReviewController = async (req, res) => {
     const { orderId, rating, comment = "", serviceExperience = [] } = req.body;
     const requestedTags = req.body.tags ?? serviceExperience;
     const rawTargetId = req.body.menuItemId || req.body.foodId || req.body.itemId;
+    const requestedFoodName = req.body.foodName || req.body.itemName || req.body.name;
     const userId = req.headers.user_id;
     const targetId = rawTargetId?._id || rawTargetId?.id || rawTargetId;
 
-    if (!orderId || !targetId || !mongoose.isValidObjectId(targetId)) {
+    if (!orderId || (!targetId && !requestedFoodName)) {
       return res.status(400).json({ status: "fail", message: "Order and menu item are required" });
     }
 
@@ -44,9 +45,13 @@ export const createReviewController = async (req, res) => {
       return res.status(400).json({ status: "fail", message: "Reviews are available after delivery" });
     }
 
+    const normalizedRequestedName = String(requestedFoodName || "").trim().toLowerCase();
     const orderItem = order.items.find((item) => (
-      String(item.menuItemId) === String(targetId) ||
-      String(item._id) === String(targetId)
+      (targetId && (
+        String(item.menuItemId) === String(targetId) ||
+        String(item._id) === String(targetId)
+      )) ||
+      (normalizedRequestedName && String(item.itemName || "").trim().toLowerCase() === normalizedRequestedName)
     ));
     if (!orderItem) {
       return res.status(400).json({ status: "fail", message: "This menu item is not part of the order" });
@@ -61,8 +66,10 @@ export const createReviewController = async (req, res) => {
       User.findById(userId).select("name").lean(),
       MenuItem.findById(menuLookupId)
     ]);
+    const itemName = String(orderItem.itemName || requestedFoodName || "").trim();
+    const escapedItemName = itemName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const menuItem = menuItemById || await MenuItem.findOne({
-      name: new RegExp(`^${String(orderItem.itemName || "").trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i")
+      name: { $regex: `^\\s*${escapedItemName.replace(/\\s+/g, "\\\\s+")}\\s*$`, $options: "i" }
     });
     if (!menuItem) {
       return res.status(404).json({ status: "fail", message: "Food item not found" });
