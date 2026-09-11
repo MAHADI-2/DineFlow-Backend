@@ -75,6 +75,11 @@ export const createReviewController = async (req, res) => {
       return res.status(404).json({ status: "fail", message: "Food item not found" });
     }
 
+    if (!Array.isArray(menuItem.reviews)) {
+      menuItem.reviews = [];
+      await menuItem.save();
+    }
+
     const existingReview = await Review.findOne({ orderId, menuItem: menuItem._id, userId }).lean();
     if (existingReview) {
       const hasStoredReview = menuItem.reviews?.some((storedReview) => (
