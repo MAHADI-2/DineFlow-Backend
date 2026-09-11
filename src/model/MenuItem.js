@@ -17,7 +17,18 @@ const menuItemSchema = new mongoose.Schema(
     category: {
       type: String,
       required: true,
-      enum: ["Burger", "Pizza", "Snacks", "Drinks", "Dessert", "Rice"],
+      enum: [
+        "Burger",
+        "Pizza",
+        "Snacks",
+        "Drinks",
+        "Dessert",
+        "Rice",
+        "Appetizer",
+        "Main",
+        "Sides",
+        "Beverage",
+      ],
     },
     price: {
       type: Number,

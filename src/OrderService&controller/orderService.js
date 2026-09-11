@@ -252,10 +252,10 @@ catch(error){
 
 export const deleteOrder = async (orderId) => {
   try {
-    // ✅ অ্যাডমিনের জন্য userId মেলানোর দরকার নেই, শুধু orderId অথবা _id দিয়ে ডিলিট হবে
-    const order = await OrderModel.findOneAndDelete({
-      $or: [{ orderId: orderId }, { _id: orderId }]
-    });
+    const query = mongoose.isValidObjectId(orderId)
+      ? { $or: [{ orderId }, { _id: orderId }] }
+      : { orderId };
+    const order = await OrderModel.findOneAndDelete(query);
 
     if (!order) {
       throw new Error("Order not found");
