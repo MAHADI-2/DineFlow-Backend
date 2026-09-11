@@ -77,7 +77,10 @@ export const createReviewController = async (req, res) => {
 
     if (!Array.isArray(menuItem.reviews)) {
       menuItem.reviews = [];
-      await menuItem.save();
+      await MenuItem.collection.updateOne(
+        { _id: menuItem._id },
+        { $set: { reviews: [] } }
+      );
     }
 
     const existingReview = await Review.findOne({ orderId, menuItem: menuItem._id, userId }).lean();
@@ -143,35 +146,52 @@ export const createReviewController = async (req, res) => {
       return res.status(404).json({ status: "fail", message: "Food item not found" });
     }
 
-    const review = await Review.create({
-      orderId,
-      menuItem: updatedItem._id,
-      userId,
-      customerName: user?.name || "Customer",
-      rating: numericRating,
-      serviceExperience: experiences,
-      comment: cleanComment
-    });
-
     const updatedReviews = Array.isArray(updatedItem.reviews) ? updatedItem.reviews : [];
     const averageRating = updatedReviews.reduce(
       (total, item) => total + Number(item.rating || 0),
       0
     ) / updatedReviews.length;
-    updatedItem.rating = Number(averageRating.toFixed(1));
-    updatedItem.numReviews = updatedReviews.length;
-    await updatedItem.save();
-
-    await OrderModel.updateOne(
-      { _id: order._id, "items._id": orderItem._id },
-      { $set: { "items.$.isReviewed": true, updatedAt: new Date() } }
+    const averageRatingValue = Number(averageRating.toFixed(1));
+    await MenuItem.collection.updateOne(
+      { _id: updatedItem._id },
+      { $set: { rating: averageRatingValue, numReviews: updatedReviews.length } }
     );
+
+    let review = null;
+    try {
+      review = await Review.create({
+        orderId,
+        menuItem: updatedItem._id,
+        userId,
+        customerName: user?.name || "Customer",
+        rating: numericRating,
+        serviceExperience: experiences,
+        comment: cleanComment
+      });
+    } catch (reviewError) {
+      console.error("Admin review record save failed after menu review persisted:", reviewError.message);
+    }
+
+    try {
+      await OrderModel.updateOne(
+        { _id: order._id, "items._id": orderItem._id },
+        { $set: { "items.$.isReviewed": true, updatedAt: new Date() } }
+      );
+    } catch (orderUpdateError) {
+      console.error("Order review flag update failed after menu review persisted:", orderUpdateError.message);
+    }
 
     return res.status(200).json({
       success: true,
       status: "success",
       message: "Thank you for your feedback!",
-      data: review
+      data: review || {
+        orderId,
+        menuItem: updatedItem._id,
+        rating: numericRating,
+        comment: cleanComment,
+        serviceExperience: experiences
+      }
     });
   } catch (error) {
     if (error?.code === 11000) {
