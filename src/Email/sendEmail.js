@@ -4,18 +4,22 @@ dotenv.config();
 
 export const SendEmail = async (email, subject, message) => {
     const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST || "smtp-relay.brevo.com",
-        port: Number(process.env.SMTP_PORT) || 587,
-        secure: false,
+        service: "gmail",
+        host: "smtp.gmail.com",
+        port: 465,
+        secure: true,
         auth: {
-            user: process.env.BREVO_SMTP_USER,
-            pass: process.env.SMTP_KEY
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
         },
-        family: 4 // IPv4 ফোর্সিংয়ের জন্য এটি খুবই জরুরি
+        tls: {
+            rejectUnauthorized: false
+        },
+        family: 4
     });
 
     const mailOptions = {
-        from: process.env.EMAIL_FROM,
+        from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
         to: email,
         subject: subject,
         text: message
