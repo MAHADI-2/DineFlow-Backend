@@ -60,7 +60,9 @@ export const createReviewController = async (req, res) => {
       User.findById(userId).select("name").lean(),
       MenuItem.findById(menuLookupId)
     ]);
-    const menuItem = menuItemById || await MenuItem.findOne({ name: orderItem.itemName });
+    const menuItem = menuItemById || await MenuItem.findOne({
+      name: new RegExp(`^${String(orderItem.itemName || "").trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i")
+    });
     if (!menuItem) {
       return res.status(404).json({ status: "fail", message: "Food item not found" });
     }
@@ -75,22 +77,27 @@ export const createReviewController = async (req, res) => {
       comment: cleanComment
     });
 
-    orderItem.isReviewed = true;
-    order.markModified("items");
-    await order.save();
+    const currentReviews = Array.isArray(menuItem.reviews) ? menuItem.reviews : [];
+    const nextReviewCount = currentReviews.length + 1;
+    const nextRating = Number(
+      ((currentReviews.reduce((total, item) => total + Number(item.rating || 0), 0) + numericRating) / nextReviewCount).toFixed(1)
+    );
 
-    menuItem.reviews.push({
+    await OrderModel.updateOne(
+      { _id: order._id, "items._id": orderItem._id },
+      { $set: { "items.$.isReviewed": true, updatedAt: new Date() } }
+    );
+
+    await MenuItem.updateOne({ _id: menuItem._id }, {
+      $push: { reviews: {
       userId,
       userName: user?.name || "Customer",
       rating: numericRating,
       comment: cleanComment,
       createdAt: review.createdAt
+      } },
+      $set: { numReviews: nextReviewCount, rating: nextRating }
     });
-    menuItem.numReviews = menuItem.reviews.length;
-    menuItem.rating = Number(
-      (menuItem.reviews.reduce((total, item) => total + item.rating, 0) / menuItem.numReviews).toFixed(1)
-    );
-    await menuItem.save();
 
     return res.status(200).json({
       success: true,
