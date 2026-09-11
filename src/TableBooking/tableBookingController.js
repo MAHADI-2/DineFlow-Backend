@@ -5,7 +5,7 @@ const allowedStatuses = ["pending", "confirmed", "seated", "cancelled"];
 
 export const createTableBookingController = async (req, res) => {
   try {
-    const { name, phone, date, time, guests, occasion = "" } = req.body;
+    const { name, phone, date, time, guests, occasion = "", seatingArea = "Main dining room" } = req.body;
     const guestCount = Number(guests);
 
     if (!name?.trim() || !phone?.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(date || "") || !/^\d{2}:\d{2}$/.test(time || "")) {
@@ -27,12 +27,24 @@ export const createTableBookingController = async (req, res) => {
       date,
       time,
       guests: guestCount,
-      occasion: String(occasion).trim()
+      occasion: String(occasion).trim(),
+      seatingArea: String(seatingArea).trim() || "Main dining room"
     });
 
     return res.status(201).json({ status: "success", message: "Table booking request received", data: booking });
   } catch (error) {
     return res.status(500).json({ status: "fail", message: error.message || "Unable to create table booking" });
+  }
+};
+
+export const getMyTableBookingsController = async (req, res) => {
+  try {
+    const bookings = await TableBookingModel.find({ userId: req.user.id })
+      .sort({ date: 1, time: 1, createdAt: -1 })
+      .lean();
+    return res.status(200).json({ status: "success", data: bookings });
+  } catch (error) {
+    return res.status(500).json({ status: "fail", message: error.message || "Unable to load your table bookings" });
   }
 };
 

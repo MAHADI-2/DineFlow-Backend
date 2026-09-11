@@ -24,7 +24,7 @@ export const CreateUser = async (name, email, password, addresses) => {
         const subject = "OTP Verification";
         const text = `Your OTP is ${otp}. This code will expire in 10 minutes.`;
 
-        await SendEmail(email, subject, text);
+        const emailResult = await SendEmail(email, subject, text);
 
         // Password hash
         const salt = await bcrypt.genSalt(10);
@@ -46,7 +46,7 @@ export const CreateUser = async (name, email, password, addresses) => {
             isValid: false
         });
 
-        return {
+        const response = {
             status: "201",
             message: "User registered successfully",
             user: {
@@ -55,6 +55,16 @@ export const CreateUser = async (name, email, password, addresses) => {
                 email: user.email
             }
         };
+
+        if (!emailResult?.sent) {
+            response.data = {
+                emailDelivery: "fallback",
+                otp
+            };
+            response.message = "User registered successfully. Email delivery is delayed.";
+        }
+
+        return response;
 
     } catch (error) {
 

@@ -41,6 +41,12 @@ const tableBookingSchema = new mongoose.Schema({
     maxlength: 120,
     default: ""
   },
+  seatingArea: {
+    type: String,
+    trim: true,
+    maxlength: 60,
+    default: "Main dining room"
+  },
   status: {
     type: String,
     enum: ["pending", "confirmed", "seated", "cancelled"],
