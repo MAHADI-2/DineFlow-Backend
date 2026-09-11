@@ -229,8 +229,11 @@ try{
   if (!validStatus.includes(status)) {
     throw new Error("Invalid payment status");
   }
+   const query = mongoose.isValidObjectId(orderId)
+     ? { $or: [{ orderId }, { _id: orderId }] }
+     : { orderId };
  const order = await OrderModel.findOneAndUpdate(
- { orderId },
+   query,
  { status, updatedAt: new Date() },
  { new: true }
  );
