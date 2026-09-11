@@ -59,6 +59,10 @@ const menuItemSchema = new mongoose.Schema(
           type: String,
           default: "Customer",
         },
+        tags: {
+          type: [String],
+          default: [],
+        },
         comment: {
           type: String,
           default: "",

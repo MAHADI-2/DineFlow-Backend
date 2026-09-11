@@ -14,6 +14,7 @@ const allowedExperiences = new Set([
 export const createReviewController = async (req, res) => {
   try {
     const { orderId, rating, comment = "", serviceExperience = [] } = req.body;
+    const requestedTags = req.body.tags ?? serviceExperience;
     const rawTargetId = req.body.menuItemId || req.body.foodId || req.body.itemId;
     const userId = req.headers.user_id;
     const targetId = rawTargetId?._id || rawTargetId?.id || rawTargetId;
@@ -77,27 +78,43 @@ export const createReviewController = async (req, res) => {
       comment: cleanComment
     });
 
-    const currentReviews = Array.isArray(menuItem.reviews) ? menuItem.reviews : [];
-    const nextReviewCount = currentReviews.length + 1;
-    const nextRating = Number(
-      ((currentReviews.reduce((total, item) => total + Number(item.rating || 0), 0) + numericRating) / nextReviewCount).toFixed(1)
+    const menuItemQuery = mongoose.isValidObjectId(menuItem._id)
+      ? { _id: menuItem._id }
+      : { name: new RegExp(`^${String(menuItem.name).trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") };
+    const updatedItem = await MenuItem.findOneAndUpdate(
+      menuItemQuery,
+      {
+        $push: {
+          reviews: {
+            userId,
+            userName: user?.name || "Customer",
+            rating: numericRating,
+            comment: cleanComment,
+            tags: Array.isArray(requestedTags) ? requestedTags : [],
+            createdAt: review.createdAt
+          }
+        }
+      },
+      { new: true, runValidators: true }
     );
+
+    if (!updatedItem) {
+      return res.status(404).json({ status: "fail", message: "Food item not found" });
+    }
+
+    const updatedReviews = Array.isArray(updatedItem.reviews) ? updatedItem.reviews : [];
+    const averageRating = updatedReviews.reduce(
+      (total, item) => total + Number(item.rating || 0),
+      0
+    ) / updatedReviews.length;
+    updatedItem.rating = Number(averageRating.toFixed(1));
+    updatedItem.numReviews = updatedReviews.length;
+    await updatedItem.save();
 
     await OrderModel.updateOne(
       { _id: order._id, "items._id": orderItem._id },
       { $set: { "items.$.isReviewed": true, updatedAt: new Date() } }
     );
-
-    await MenuItem.updateOne({ _id: menuItem._id }, {
-      $push: { reviews: {
-      userId,
-      userName: user?.name || "Customer",
-      rating: numericRating,
-      comment: cleanComment,
-      createdAt: review.createdAt
-      } },
-      $set: { numReviews: nextReviewCount, rating: nextRating }
-    });
 
     return res.status(200).json({
       success: true,
