@@ -135,7 +135,7 @@ export const createReviewController = async (req, res) => {
             rating: numericRating,
             comment: cleanComment,
             tags: Array.isArray(requestedTags) ? requestedTags : [],
-            createdAt: review.createdAt
+            createdAt: new Date()
           }
         }
       },
